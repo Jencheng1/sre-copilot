@@ -42,16 +42,18 @@ class BedrockService:
         Analyze text using Bedrock's Claude model
         """
         try:
-            # Format the prompt with the text parameter
-            formatted_prompt = prompt_template.format(text=text)
+            # Format the prompt with the text parameter and add Claude's required prefixes
+            formatted_prompt = f"\n\nHuman: {prompt_template.format(text=text)}\n\nAssistant: I'll analyze this information and provide a structured response."
             
             body = json.dumps({
                 "prompt": formatted_prompt,
                 "max_tokens_to_sample": 1000,
                 "temperature": 0.7,
                 "top_p": 0.95,
-                "stop_sequences": ["\n\n"]
+                "stop_sequences": ["\n\nHuman:"]
             })
+            
+            logger.debug(f"Sending prompt to Claude: {formatted_prompt}")
             
             response = self.bedrock.invoke_model(
                 modelId="anthropic.claude-v2",
@@ -62,6 +64,7 @@ class BedrockService:
             
             # Extract the completion from Claude's response
             completion = response_body.get('completion', '')
+            logger.debug(f"Received completion from Claude: {completion}")
             
             # Parse the completion into structured data
             try:
@@ -141,7 +144,7 @@ class BedrockService:
         prompt = """
         Analyze the following metrics data and identify patterns, anomalies, and potential issues:
         
-        {metrics}
+        {text}
         
         Provide insights in the following format:
         1. Key patterns and trends
@@ -160,7 +163,7 @@ class BedrockService:
         prompt = """
         Analyze the following log data and identify patterns, errors, and potential issues:
         
-        {logs}
+        {text}
         
         Provide insights in the following format:
         1. Error patterns and frequencies
@@ -205,7 +208,7 @@ class BedrockService:
         prompt = """
         Based on the following analysis results, generate specific, actionable recommendations:
         
-        {analysis}
+        {text}
         
         Provide recommendations in a clear, prioritized list.
         """
