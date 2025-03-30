@@ -4,17 +4,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
-from dotenv import load_dotenv
-import os
 from utils.test_data import generate_test_incident, generate_test_snapshot
 from utils.diagrams import get_system_architecture_diagram, get_agent_interaction_diagram, get_data_flow_diagram
 from models.incident import Incident, IncidentAnalysis
 import asyncio
 import httpx
 from main import analyze_incident
-
-# Load environment variables
-load_dotenv()
 
 # Verify AWS configuration
 if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
@@ -33,11 +28,6 @@ if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS
     ```
     """)
     st.stop()
-
-# Set AWS credentials from Streamlit secrets
-os.environ['AWS_ACCESS_KEY_ID'] = st.secrets['AWS_ACCESS_KEY_ID']
-os.environ['AWS_SECRET_ACCESS_KEY'] = st.secrets['AWS_SECRET_ACCESS_KEY']
-os.environ['AWS_REGION'] = st.secrets['AWS_REGION']
 
 # Create a new event loop for async operations
 async def run_analysis(incident: Incident):
