@@ -153,7 +153,17 @@ class BedrockService:
         4. Recommendations
         """
         
-        metrics_text = json.dumps(metrics, indent=2)
+        # Convert metrics to serializable format
+        metrics_data = []
+        for metric in metrics:
+            metrics_data.append({
+                "name": metric.name,
+                "value": metric.value,
+                "timestamp": metric.timestamp.isoformat(),
+                "tags": metric.tags or {}
+            })
+        
+        metrics_text = json.dumps(metrics_data, indent=2)
         return await self.analyze_text(metrics_text, prompt)
     
     async def analyze_logs(self, logs: list) -> Dict[str, Any]:
@@ -172,7 +182,18 @@ class BedrockService:
         4. Recommendations
         """
         
-        logs_text = "\n".join(logs)
+        # Convert logs to serializable format
+        logs_data = []
+        for log in logs:
+            logs_data.append({
+                "timestamp": log.timestamp.isoformat(),
+                "level": log.level,
+                "message": log.message,
+                "source": log.source,
+                "metadata": log.metadata or {}
+            })
+        
+        logs_text = json.dumps(logs_data, indent=2)
         return await self.analyze_text(logs_text, prompt)
     
     async def analyze_image(self, image_data: bytes) -> Dict[str, Any]:
@@ -213,6 +234,11 @@ class BedrockService:
         Provide recommendations in a clear, prioritized list.
         """
         
-        analysis_text = json.dumps(analysis_results, indent=2)
+        # If analysis_results is a Pydantic model, convert it to dict
+        if hasattr(analysis_results, 'model_dump'):
+            analysis_text = json.dumps(analysis_results.model_dump(), indent=2)
+        else:
+            analysis_text = json.dumps(analysis_results, indent=2)
+            
         response = await self.analyze_text(analysis_text, prompt)
         return response.get('recommendations', []) 
