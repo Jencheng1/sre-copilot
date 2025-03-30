@@ -47,9 +47,9 @@ class BedrockService:
             
             body = json.dumps({
                 "prompt": formatted_prompt,
-                "max_tokens_to_sample": 2000,  # Increased token limit for more detailed responses
-                "temperature": 0.7,
-                "top_p": 0.95,
+                "max_tokens_to_sample": 2000,
+                "temperature": 0.5,  # Reduced for more consistent formatting
+                "top_p": 0.99,
                 "stop_sequences": ["\n\nHuman:"]
             })
             
@@ -61,17 +61,12 @@ class BedrockService:
             )
             
             response_body = json.loads(response.get('body').read())
-            
-            # Extract the completion from Claude's response
             completion = response_body.get('completion', '')
-            logger.debug(f"Received completion from Claude: {completion}")
+            logger.debug(f"Raw completion from Claude: {completion}")
             
             # Parse the completion into structured data
             try:
-                # Split the completion into sections
-                sections = completion.split('\n\n')
-                
-                # Initialize the result dictionary
+                # Initialize the result dictionary with default values
                 result = {
                     "root_cause": "",
                     "root_cause_confidence": 0.0,
@@ -83,75 +78,81 @@ class BedrockService:
                     "recommendations": []
                 }
                 
+                # Split into major sections
+                sections = completion.split('\n\n')
                 current_section = None
-                evidence_list = []
                 
                 for section in sections:
-                    lines = section.strip().split('\n')
-                    first_line = lines[0].strip()
+                    logger.debug(f"Processing section: {section}")
+                    lines = [line.strip() for line in section.split('\n') if line.strip()]
                     
-                    if "Root Cause Analysis:" in first_line:
+                    if not lines:
+                        continue
+                        
+                    first_line = lines[0]
+                    
+                    # Identify section
+                    if "1. Root Cause Analysis:" in first_line:
                         current_section = "root_cause"
                         if len(lines) > 1:
-                            result["root_cause"] = lines[1].strip()
-                    
-                    elif "Impact Analysis:" in first_line:
+                            result["root_cause"] = lines[1]
+                            logger.debug(f"Found root cause: {lines[1]}")
+                            
+                    elif "2. Impact Analysis:" in first_line:
                         current_section = "impact"
                         if len(lines) > 1:
-                            result["impact_analysis"] = lines[1].strip()
-                    
-                    elif "Key Findings:" in first_line:
+                            result["impact_analysis"] = lines[1]
+                            logger.debug(f"Found impact analysis: {lines[1]}")
+                            
+                    elif "3. Key Findings:" in first_line:
                         current_section = "findings"
-                        result["key_findings"].extend(
-                            line.strip("- ").strip()
-                            for line in lines[1:]
-                            if line.strip().startswith("-")
-                        )
-                    
-                    elif "Recommendations:" in first_line:
+                        findings = [line.strip("- ").strip() for line in lines[1:] if line.startswith("-")]
+                        result["key_findings"] = findings
+                        logger.debug(f"Found key findings: {findings}")
+                            
+                    elif "4. Recommendations:" in first_line:
                         current_section = "recommendations"
-                        result["recommendations"].extend(
-                            line.strip("- ").strip()
-                            for line in lines[1:]
-                            if line.strip().startswith("-")
-                        )
+                        recommendations = [line.strip("- ").strip() for line in lines[1:] if line.startswith("-")]
+                        result["recommendations"] = recommendations
+                        logger.debug(f"Found recommendations: {recommendations}")
                     
+                    # Process confidence levels
                     elif "Confidence:" in first_line:
-                        confidence_str = first_line.split(":")[1].strip().rstrip("%")
+                        confidence_str = first_line.split("Confidence:")[1].strip().rstrip("%")
                         try:
                             confidence = float(confidence_str) / 100.0
                             if current_section == "root_cause":
                                 result["root_cause_confidence"] = confidence
+                                logger.debug(f"Found root cause confidence: {confidence}")
                             elif current_section == "impact":
                                 result["impact_confidence"] = confidence
-                        except ValueError:
-                            logger.warning(f"Failed to parse confidence value: {confidence_str}")
+                                logger.debug(f"Found impact confidence: {confidence}")
+                        except ValueError as e:
+                            logger.error(f"Failed to parse confidence value '{confidence_str}': {str(e)}")
                     
+                    # Process evidence points
                     elif "Evidence:" in first_line:
-                        evidence_list = []
+                        continue  # Skip the "Evidence:" header line
                     
-                    elif current_section in ["root_cause", "impact"] and lines[0].strip().startswith("-"):
+                    elif current_section in ["root_cause", "impact"] and first_line.startswith("-"):
+                        evidence = [line.strip("- ").strip() for line in lines if line.startswith("-")]
                         if current_section == "root_cause":
-                            result["root_cause_evidence"].extend(
-                                line.strip("- ").strip()
-                                for line in lines
-                                if line.strip().startswith("-")
-                            )
+                            result["root_cause_evidence"] = evidence
+                            logger.debug(f"Found root cause evidence: {evidence}")
                         else:
-                            result["impact_evidence"].extend(
-                                line.strip("- ").strip()
-                                for line in lines
-                                if line.strip().startswith("-")
-                            )
+                            result["impact_evidence"] = evidence
+                            logger.debug(f"Found impact evidence: {evidence}")
                 
-                logger.debug(f"Parsed analysis result: {json.dumps(result, indent=2)}")
+                logger.debug(f"Final parsed result: {json.dumps(result, indent=2)}")
                 return result
                 
             except Exception as e:
                 logger.error(f"Error parsing Claude's response: {str(e)}")
                 logger.error(f"Raw completion: {completion}")
-                # Return the raw completion if parsing fails
-                return {"completion": completion}
+                return {
+                    "error": f"Failed to parse response: {str(e)}",
+                    "raw_completion": completion
+                }
             
         except Exception as e:
             logger.error(f"Error analyzing text with Bedrock: {str(e)}")
