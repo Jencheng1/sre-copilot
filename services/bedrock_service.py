@@ -1,20 +1,41 @@
+import logging
+import os
 import boto3
 import json
 from typing import Dict, Any, List
 import streamlit as st
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 class BedrockService:
     def __init__(self):
-        # Verify AWS credentials in Streamlit secrets and initialize Bedrock client
-        if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
-            raise Exception("AWS credentials not found in Streamlit secrets. Please configure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION.")
+        logger.debug("Initializing BedrockService...")
+        logger.debug(f"AWS_REGION from env: {os.getenv('AWS_REGION')}")
+        logger.debug(f"AWS_REGION in st.secrets: {st.secrets.get('AWS_REGION')}")
+        
+        # Check for required AWS configuration in Streamlit secrets
+        required_keys = ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']
+        missing_keys = [key for key in required_keys if key not in st.secrets]
+        
+        if missing_keys:
+            error_msg = f"Missing required AWS configuration keys: {', '.join(missing_keys)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
             
-        self.bedrock = boto3.client(
-            service_name='bedrock-runtime',
-            region_name=st.secrets['AWS_REGION'],
-            aws_access_key_id=st.secrets['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=st.secrets['AWS_SECRET_ACCESS_KEY']
-        )
+        logger.debug("Creating boto3 client with region from st.secrets...")
+        try:
+            self.bedrock = boto3.client(
+                'bedrock-runtime',
+                region_name=st.secrets['AWS_REGION'],
+                aws_access_key_id=st.secrets['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=st.secrets['AWS_SECRET_ACCESS_KEY']
+            )
+            logger.debug("Successfully created boto3 client")
+        except Exception as e:
+            logger.error(f"Failed to create boto3 client: {str(e)}")
+            raise
         
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:
         """

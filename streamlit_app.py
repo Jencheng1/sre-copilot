@@ -314,7 +314,7 @@ def main():
         
         # Display incident details
         st.header("📋 Incident Details")
-        st.json(incident.dict())
+        st.json(incident.model_dump())  # Using model_dump instead of dict
         
         # Display metrics and logs
         display_metrics(incident)
@@ -336,19 +336,33 @@ def main():
                     if analysis:
                         display_analysis(analysis)
                 except Exception as e:
-                    if "NoRegionError" in str(e):
-                        st.error("""
+                    error_msg = str(e)
+                    if "NoRegionError" in error_msg:
+                        st.error(f"""
                         ⚠️ AWS Region not properly configured.
                         Please check your AWS_REGION in Streamlit secrets.
                         Make sure it's a region where Bedrock is available (e.g., us-east-1, us-west-2).
+                        
+                        Error details: {error_msg}
                         """)
-                    elif "AccessDenied" in str(e):
-                        st.error("""
+                    elif "AccessDenied" in error_msg:
+                        st.error(f"""
                         ⚠️ AWS Access Denied.
                         Please check your AWS credentials in Streamlit secrets and ensure they have access to Bedrock.
+                        
+                        Error details: {error_msg}
                         """)
                     else:
-                        st.error(f"Analysis failed: {str(e)}")
+                        st.error(f"""
+                        ❌ Analysis failed
+                        
+                        Error details: {error_msg}
+                        
+                        Please check:
+                        1. Your AWS credentials are correct
+                        2. You're using a region where Bedrock is available
+                        3. Your AWS credentials have access to Bedrock
+                        """)
     else:
         st.info("Please upload incident data or enable test data")
 

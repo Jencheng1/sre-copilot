@@ -40,18 +40,18 @@ async def analyze_incident(incident: Incident, bedrock_service: BedrockService =
     """
     Analyze an incident using multiple agents for comprehensive RCA
     """
+    # Validate incident data
+    validate_incident_data(incident)
+    
+    # Initialize services if not provided
+    if bedrock_service is None:
+        bedrock_service = BedrockService()
+        
+    incident_analyzer = IncidentAnalyzer(bedrock_service)
+    metric_analyzer = MetricAnalyzer(bedrock_service)
+    log_analyzer = LogAnalyzer(bedrock_service)
+    
     try:
-        # Validate incident data
-        validate_incident_data(incident)
-        
-        # Initialize services if not provided
-        if bedrock_service is None:
-            bedrock_service = BedrockService()
-            
-        incident_analyzer = IncidentAnalyzer(bedrock_service)
-        metric_analyzer = MetricAnalyzer(bedrock_service)
-        log_analyzer = LogAnalyzer(bedrock_service)
-        
         # Run parallel analysis using different agents
         incident_analysis = await incident_analyzer.analyze(incident)
         metric_analysis = await metric_analyzer.analyze(incident.metrics)
@@ -69,10 +69,11 @@ async def analyze_incident(incident: Incident, bedrock_service: BedrockService =
         
         return combined_analysis
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Re-raise the exception with the original error message
+        raise Exception(str(e))
 
 @app.post("/analyze/metrics")
-async def analyze_metrics(metrics: List[dict]):
+async def analyze_metrics_endpoint(metrics: List[dict]):
     """
     Analyze metrics data specifically
     """
@@ -85,7 +86,7 @@ async def analyze_metrics(metrics: List[dict]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/logs")
-async def analyze_logs(logs: List[str]):
+async def analyze_logs_endpoint(logs: List[str]):
     """
     Analyze log data specifically
     """
@@ -98,7 +99,7 @@ async def analyze_logs(logs: List[str]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/analyze/image")
-async def analyze_image(image: UploadFile = File(...)):
+async def analyze_image_endpoint(image: UploadFile = File(...)):
     """
     Analyze incident-related images (e.g., dashboards, error screenshots)
     """
