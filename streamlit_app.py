@@ -116,106 +116,163 @@ def display_metrics(incident: Incident):
     """Display metrics visualization"""
     st.subheader("📊 Metrics Analysis")
     
-    # Convert metrics to DataFrame
-    metrics_data = []
-    for metric in incident.metrics:
-        metrics_data.append({
-            "timestamp": metric.timestamp,
-            "value": metric.value,
-            "name": metric.name,
-            "service": metric.tags.get("service", "unknown")
-        })
-    
-    df = pd.DataFrame(metrics_data)
-    
-    # Create tabs for different visualizations
-    tab1, tab2 = st.tabs(["Time Series", "Distribution"])
-    
-    with tab1:
-        # Time series plot
-        fig = px.line(df, x="timestamp", y="value", 
-                     color="name", line_group="service",
-                     title="Metrics Over Time")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        # Distribution plot
-        fig = px.box(df, x="name", y="value", 
-                    color="service",
-                    title="Metrics Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+    try:
+        # Convert metrics to DataFrame
+        metrics_data = []
+        if not incident.metrics:
+            st.warning("No metrics data available")
+            return
+            
+        for metric in incident.metrics:
+            metrics_data.append({
+                "timestamp": metric.timestamp,
+                "value": metric.value,
+                "name": metric.name,
+                "service": metric.tags.get("service", "unknown")
+            })
+        
+        df = pd.DataFrame(metrics_data)
+        if df.empty:
+            st.warning("No metrics data to display")
+            return
+            
+        # Create tabs for different visualizations
+        tab1, tab2 = st.tabs(["Time Series", "Distribution"])
+        
+        with tab1:
+            # Time series plot
+            try:
+                fig = px.line(df, x="timestamp", y="value", 
+                         color="name", line_group="service",
+                         title="Metrics Over Time")
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Failed to create time series plot: {str(e)}")
+        
+        with tab2:
+            # Distribution plot
+            try:
+                fig = px.box(df, x="name", y="value", 
+                        color="service",
+                        title="Metrics Distribution")
+                st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.error(f"Failed to create distribution plot: {str(e)}")
+    except Exception as e:
+        st.error(f"Error displaying metrics: {str(e)}")
 
 def display_logs(incident: Incident):
     """Display logs analysis"""
     st.subheader("📝 Log Analysis")
     
-    # Convert logs to DataFrame
-    logs_data = []
-    for log in incident.logs:
-        logs_data.append({
-            "timestamp": log.timestamp,
-            "level": log.level,
-            "message": log.message,
-            "source": log.source
-        })
-    
-    df = pd.DataFrame(logs_data)
-    
-    # Log level distribution
-    fig = px.pie(df, names="level", title="Log Level Distribution")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Log timeline
-    fig = px.scatter(df, x="timestamp", y="level", 
-                    color="source", size=[1] * len(df),
-                    title="Log Timeline")
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # Display log table
-    st.dataframe(df)
+    try:
+        # Convert logs to DataFrame
+        logs_data = []
+        if not incident.logs:
+            st.warning("No logs data available")
+            return
+            
+        for log in incident.logs:
+            logs_data.append({
+                "timestamp": log.timestamp,
+                "level": log.level,
+                "message": log.message,
+                "source": log.source
+            })
+        
+        df = pd.DataFrame(logs_data)
+        if df.empty:
+            st.warning("No logs data to display")
+            return
+        
+        # Log level distribution
+        try:
+            fig = px.pie(df, names="level", title="Log Level Distribution")
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Failed to create log level distribution chart: {str(e)}")
+        
+        # Log timeline
+        try:
+            fig = px.scatter(df, x="timestamp", y="level", 
+                        color="source", size=[1] * len(df),
+                        title="Log Timeline")
+            st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.error(f"Failed to create log timeline chart: {str(e)}")
+        
+        # Display log table
+        try:
+            st.dataframe(df)
+        except Exception as e:
+            st.error(f"Failed to display logs table: {str(e)}")
+    except Exception as e:
+        st.error(f"Error displaying logs: {str(e)}")
 
 def display_analysis(analysis: IncidentAnalysis):
     """Display RCA analysis results"""
     st.subheader("🔍 Root Cause Analysis")
     
-    # Root Cause
-    st.markdown("### Root Cause")
-    st.markdown(f"**{analysis.root_cause.description}**")
-    st.markdown(f"Confidence: {analysis.root_cause.confidence:.0%}")
-    st.markdown("**Evidence:**")
-    for evidence in analysis.root_cause.evidence:
-        st.markdown(f"- {evidence}")
-    
-    # Impact Analysis
-    st.markdown("### Impact Analysis")
-    st.markdown(f"**{analysis.impact_analysis.description}**")
-    st.markdown(f"Confidence: {analysis.impact_analysis.confidence:.0%}")
-    st.markdown("**Evidence:**")
-    for evidence in analysis.impact_analysis.evidence:
-        st.markdown(f"- {evidence}")
-    
-    # Metric Insights
-    st.markdown("### Metric Insights")
-    for insight in analysis.metric_insights:
-        with st.expander(insight.description):
-            st.markdown(f"Confidence: {insight.confidence:.0%}")
+    try:
+        if not analysis:
+            st.warning("No analysis results available")
+            return
+            
+        # Root Cause
+        st.markdown("### Root Cause")
+        if analysis.root_cause:
+            st.markdown(f"**{analysis.root_cause.description}**")
+            st.markdown(f"Confidence: {analysis.root_cause.confidence:.0%}")
             st.markdown("**Evidence:**")
-            for evidence in insight.evidence:
+            for evidence in analysis.root_cause.evidence:
                 st.markdown(f"- {evidence}")
-    
-    # Log Insights
-    st.markdown("### Log Insights")
-    for insight in analysis.log_insights:
-        with st.expander(insight.description):
-            st.markdown(f"Confidence: {insight.confidence:.0%}")
+        else:
+            st.warning("No root cause analysis available")
+        
+        # Impact Analysis
+        st.markdown("### Impact Analysis")
+        if analysis.impact_analysis:
+            st.markdown(f"**{analysis.impact_analysis.description}**")
+            st.markdown(f"Confidence: {analysis.impact_analysis.confidence:.0%}")
             st.markdown("**Evidence:**")
-            for evidence in insight.evidence:
+            for evidence in analysis.impact_analysis.evidence:
                 st.markdown(f"- {evidence}")
-    
-    # Recommendations
-    st.markdown("### Recommendations")
-    for i, rec in enumerate(analysis.recommendations, 1):
-        st.markdown(f"{i}. {rec}")
+        else:
+            st.warning("No impact analysis available")
+        
+        # Metric Insights
+        st.markdown("### Metric Insights")
+        if analysis.metric_insights:
+            for insight in analysis.metric_insights:
+                with st.expander(insight.description):
+                    st.markdown(f"Confidence: {insight.confidence:.0%}")
+                    st.markdown("**Evidence:**")
+                    for evidence in insight.evidence:
+                        st.markdown(f"- {evidence}")
+        else:
+            st.warning("No metric insights available")
+        
+        # Log Insights
+        st.markdown("### Log Insights")
+        if analysis.log_insights:
+            for insight in analysis.log_insights:
+                with st.expander(insight.description):
+                    st.markdown(f"Confidence: {insight.confidence:.0%}")
+                    st.markdown("**Evidence:**")
+                    for evidence in insight.evidence:
+                        st.markdown(f"- {evidence}")
+        else:
+            st.warning("No log insights available")
+        
+        # Recommendations
+        st.markdown("### Recommendations")
+        if analysis.recommendations:
+            for i, rec in enumerate(analysis.recommendations, 1):
+                st.markdown(f"{i}. {rec}")
+        else:
+            st.warning("No recommendations available")
+    except Exception as e:
+        st.error(f"Error displaying analysis results: {str(e)}")
 
 def main():
     st.title("🔍 SRE Copilot - Incident RCA")
