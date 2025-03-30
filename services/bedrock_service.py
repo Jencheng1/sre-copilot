@@ -4,6 +4,8 @@ import boto3
 import json
 from typing import Dict, Any, List
 import streamlit as st
+import time
+from botocore.exceptions import ClientError
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -37,6 +39,31 @@ class BedrockService:
             logger.error(f"Failed to create boto3 client: {str(e)}")
             raise
         
+    async def _invoke_with_retry(self, model_id: str, body: str, max_retries: int = 5) -> Dict:
+        """
+        Invoke Bedrock model with exponential backoff retry logic
+        """
+        base_delay = 1  # Start with 1 second delay
+        for attempt in range(max_retries):
+            try:
+                response = self.bedrock.invoke_model(
+                    modelId=model_id,
+                    body=body
+                )
+                return json.loads(response.get('body').read())
+            except ClientError as e:
+                if e.response['Error']['Code'] == 'ThrottlingException':
+                    if attempt == max_retries - 1:
+                        raise Exception(f"Maximum retries ({max_retries}) reached for throttling. Please try again later.")
+                    
+                    delay = (base_delay * (2 ** attempt)) + (time.random() * 0.1)  # Add small random jitter
+                    logger.warning(f"Request throttled. Retrying in {delay:.2f} seconds... (Attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                raise
+            except Exception as e:
+                raise Exception(f"Error invoking Bedrock model: {str(e)}")
+        
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:
         """
         Analyze text using Bedrock's Claude model
@@ -55,12 +82,7 @@ class BedrockService:
             
             logger.debug(f"Sending prompt to Claude: {formatted_prompt}")
             
-            response = self.bedrock.invoke_model(
-                modelId="anthropic.claude-v2",
-                body=body
-            )
-            
-            response_body = json.loads(response.get('body').read())
+            response_body = await self._invoke_with_retry("anthropic.claude-v2", body)
             completion = response_body.get('completion', '')
             logger.debug(f"Raw completion from Claude: {completion}")
             
