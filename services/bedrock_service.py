@@ -1,18 +1,15 @@
 import boto3
 import json
 from typing import Dict, Any, List
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+import streamlit as st
 
 class BedrockService:
     def __init__(self):
         self.bedrock = boto3.client(
             service_name='bedrock-runtime',
-            region_name=os.getenv('AWS_REGION'),
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+            region_name=st.secrets['AWS_REGION'],
+            aws_access_key_id=st.secrets['AWS_ACCESS_KEY_ID'],
+            aws_secret_access_key=st.secrets['AWS_SECRET_ACCESS_KEY']
         )
         
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:

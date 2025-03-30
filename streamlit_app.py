@@ -4,12 +4,41 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
+from dotenv import load_dotenv
+import os
 from utils.test_data import generate_test_incident, generate_test_snapshot
 from utils.diagrams import get_system_architecture_diagram, get_agent_interaction_diagram, get_data_flow_diagram
 from models.incident import Incident, IncidentAnalysis
 import asyncio
 import httpx
 from main import analyze_incident
+
+# Load environment variables
+load_dotenv()
+
+# Verify AWS configuration
+if not all(['AWS_ACCESS_KEY_ID' in st.secrets,
+           'AWS_SECRET_ACCESS_KEY' in st.secrets,
+           'AWS_REGION' in st.secrets]):
+    st.error("AWS credentials not found. Please configure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in your Streamlit secrets.")
+    st.markdown("""
+    To configure secrets in Streamlit Cloud:
+    1. Go to your app dashboard on share.streamlit.io
+    2. Click on ⚙️ Settings
+    3. Go to Secrets section
+    4. Add your secrets in TOML format:
+    ```toml
+    AWS_ACCESS_KEY_ID = "your_access_key"
+    AWS_SECRET_ACCESS_KEY = "your_secret_key"
+    AWS_REGION = "us-east-1"
+    ```
+    """)
+    st.stop()
+
+# Set AWS credentials from Streamlit secrets
+os.environ['AWS_ACCESS_KEY_ID'] = st.secrets['AWS_ACCESS_KEY_ID']
+os.environ['AWS_SECRET_ACCESS_KEY'] = st.secrets['AWS_SECRET_ACCESS_KEY']
+os.environ['AWS_REGION'] = st.secrets['AWS_REGION']
 
 # Create a new event loop for async operations
 async def run_analysis(incident: Incident):
@@ -63,25 +92,23 @@ def display_system_architecture():
         # System Architecture Diagram
         st.subheader("System Overview")
         system_diagram = get_system_architecture_diagram()
-        st.image(system_diagram, use_column_width=True)
+        st.image(system_diagram)
         
         # Agent Interaction Diagram
         st.subheader("Agent Interactions")
         agent_diagram = get_agent_interaction_diagram()
-        st.image(agent_diagram, use_column_width=True)
+        st.image(agent_diagram)
         
         # Data Flow Diagram
         st.subheader("Data Flow")
         data_diagram = get_data_flow_diagram()
-        st.image(data_diagram, use_column_width=True)
+        st.image(data_diagram)
     except Exception as e:
         st.error("""
-        Failed to generate diagrams. Please install Graphviz:
+        Failed to generate diagrams. Please make sure Graphviz is installed:
         
-        1. Download Graphviz from https://graphviz.org/download/
-        2. Run the installer
-        3. Add Graphviz to your system PATH
-        4. Restart your terminal/IDE
+        1. The error might be temporary - try refreshing the page
+        2. If the error persists, please report it to the development team
         
         Error details: """ + str(e))
 
