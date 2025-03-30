@@ -4,11 +4,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import json
+import logging
 from utils.test_data import generate_test_incident, generate_test_snapshot
 from utils.diagrams import get_system_architecture_diagram, get_agent_interaction_diagram, get_data_flow_diagram
 from models.incident import Incident, IncidentAnalysis
 import asyncio
 import httpx
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Import analyze_incident function lazily to avoid immediate initialization
 from main import analyze_incident
@@ -33,21 +38,42 @@ if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS
 
 # Create a new event loop for async operations
 async def run_analysis(incident: Incident):
+    logger.debug("Starting incident analysis...")
     try:
-        return await analyze_incident(incident)
+        logger.debug("Initializing BedrockService...")
+        from services.bedrock_service import BedrockService
+        bedrock_service = BedrockService()
+        
+        logger.debug("Running analyze_incident...")
+        analysis = await analyze_incident(incident, bedrock_service)
+        logger.debug("Analysis completed successfully")
+        return analysis
     except Exception as e:
-        if "NoRegionError" in str(e):
+        error_msg = str(e)
+        logger.error(f"Analysis failed with error: {error_msg}")
+        
+        if "NoRegionError" in error_msg:
             st.error("""
             ⚠️ AWS Region not properly configured.
             Please check your AWS_REGION in Streamlit secrets.
+            Make sure it's a region where Bedrock is available (e.g., us-east-1, us-west-2).
             """)
-        elif "AccessDenied" in str(e):
+        elif "AccessDenied" in error_msg:
             st.error("""
             ⚠️ AWS Access Denied.
             Please check your AWS credentials in Streamlit secrets.
             """)
         else:
-            st.error(f"Analysis failed: {str(e)}")
+            st.error(f"""
+            ❌ Analysis failed
+            
+            Error details: {error_msg}
+            
+            Please check:
+            1. Your AWS credentials are correct
+            2. You're using a region where Bedrock is available
+            3. Your AWS credentials have access to Bedrock
+            """)
         return None
 
 # Set page config
@@ -279,10 +305,15 @@ def display_analysis(analysis: IncidentAnalysis):
 def main():
     st.title("🔍 SRE Copilot - Incident RCA")
     
+    logger.debug("Starting main application...")
+    logger.debug(f"AWS configuration in secrets: {list(st.secrets.keys())}")
+    
     # Verify AWS configuration first
     if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
-        st.error("""
-        ⚠️ AWS credentials not found in Streamlit secrets.
+        missing_keys = [key for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION'] if key not in st.secrets]
+        logger.error(f"Missing AWS configuration keys: {missing_keys}")
+        st.error(f"""
+        ⚠️ AWS credentials not found in Streamlit secrets: {', '.join(missing_keys)}
         
         Please configure the following in your Streamlit Cloud settings:
         1. Go to your app dashboard on share.streamlit.io
@@ -324,14 +355,7 @@ def main():
         if st.sidebar.button("Analyze Incident"):
             with st.spinner("Analyzing incident..."):
                 try:
-                    # Initialize BedrockService only when needed
-                    from services.bedrock_service import BedrockService
-                    bedrock_service = BedrockService()
-                    
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    analysis = loop.run_until_complete(analyze_incident(incident, bedrock_service))
-                    loop.close()
+                    analysis = await run_analysis(incident)
                     
                     if analysis:
                         display_analysis(analysis)

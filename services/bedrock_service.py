@@ -42,22 +42,23 @@ class BedrockService:
         Analyze text using AWS Bedrock
         """
         try:
-            request_body = {
-                "prompt": prompt_template.format(text=text),
-                "max_tokens": 1000,
+            body = json.dumps({
+                "prompt": prompt_template.format(text),
+                "max_tokens_to_sample": 1000,
                 "temperature": 0.7,
                 "top_p": 0.95,
                 "stop_sequences": ["\n\n"]
-            }
+            })
             
             response = self.bedrock.invoke_model(
                 modelId="anthropic.claude-v2",
-                body=json.dumps(request_body)
+                body=body
             )
             
             response_body = json.loads(response.get('body').read())
             return response_body
         except Exception as e:
+            logger.error(f"Error analyzing text with Bedrock: {str(e)}")
             raise Exception(f"Error analyzing text with Bedrock: {str(e)}")
     
     async def analyze_metrics(self, metrics: list) -> Dict[str, Any]:

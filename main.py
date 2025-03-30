@@ -3,12 +3,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
+import logging
 from services.bedrock_service import BedrockService
 from agents.incident_analyzer import IncidentAnalyzer
 from agents.metric_analyzer import MetricAnalyzer
 from agents.log_analyzer import LogAnalyzer
 from models.incident import Incident, IncidentAnalysis
 from utils.validators import validate_incident_data
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="SRE Copilot - Incident RCA System")
 
@@ -40,23 +45,37 @@ async def analyze_incident(incident: Incident, bedrock_service: BedrockService =
     """
     Analyze an incident using multiple agents for comprehensive RCA
     """
+    logger.debug("Starting incident analysis...")
+    
     # Validate incident data
+    logger.debug("Validating incident data...")
     validate_incident_data(incident)
     
     # Initialize services if not provided
     if bedrock_service is None:
+        logger.debug("Initializing BedrockService...")
         bedrock_service = BedrockService()
-        
+    
+    logger.debug("Initializing analyzers...")
     incident_analyzer = IncidentAnalyzer(bedrock_service)
     metric_analyzer = MetricAnalyzer(bedrock_service)
     log_analyzer = LogAnalyzer(bedrock_service)
     
     try:
+        logger.debug("Running incident analysis...")
         # Run parallel analysis using different agents
         incident_analysis = await incident_analyzer.analyze(incident)
-        metric_analysis = await metric_analyzer.analyze(incident.metrics)
-        log_analysis = await log_analyzer.analyze(incident.logs)
+        logger.debug("Incident analysis completed")
         
+        logger.debug("Running metrics analysis...")
+        metric_analysis = await metric_analyzer.analyze(incident.metrics)
+        logger.debug("Metrics analysis completed")
+        
+        logger.debug("Running logs analysis...")
+        log_analysis = await log_analyzer.analyze(incident.logs)
+        logger.debug("Logs analysis completed")
+        
+        logger.debug("Combining analyses...")
         # Combine analyses
         combined_analysis = IncidentAnalysis(
             incident_id=incident.incident_id,
@@ -67,8 +86,10 @@ async def analyze_incident(incident: Incident, bedrock_service: BedrockService =
             recommendations=incident_analysis.recommendations
         )
         
+        logger.debug("Analysis completed successfully")
         return combined_analysis
     except Exception as e:
+        logger.error(f"Analysis failed with error: {str(e)}")
         # Re-raise the exception with the original error message
         raise Exception(str(e))
 
