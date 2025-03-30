@@ -21,8 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.post("/analyze/incident", response_model=IncidentAnalysis)
-async def analyze_incident(incident: Incident):
+async def analyze_incident(incident: Incident, bedrock_service: BedrockService = None):
     """
     Analyze an incident using multiple agents for comprehensive RCA
     """
@@ -30,8 +29,10 @@ async def analyze_incident(incident: Incident):
         # Validate incident data
         validate_incident_data(incident)
         
-        # Initialize services
-        bedrock_service = BedrockService()
+        # Initialize services if not provided
+        if bedrock_service is None:
+            bedrock_service = BedrockService()
+            
         incident_analyzer = IncidentAnalyzer(bedrock_service)
         metric_analyzer = MetricAnalyzer(bedrock_service)
         log_analyzer = LogAnalyzer(bedrock_service)

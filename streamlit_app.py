@@ -10,6 +10,7 @@ from models.incident import Incident, IncidentAnalysis
 import asyncio
 import httpx
 from main import analyze_incident
+from services.bedrock_service import BedrockService
 
 # Verify AWS configuration
 if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
@@ -295,6 +296,26 @@ def main():
         """)
         st.stop()
     
+    try:
+        # Initialize BedrockService once for the session
+        if 'bedrock_service' not in st.session_state:
+            st.session_state.bedrock_service = BedrockService()
+    except Exception as e:
+        if "NoRegionError" in str(e):
+            st.error("""
+            ⚠️ AWS Region not properly configured.
+            Please check your AWS_REGION in Streamlit secrets.
+            Make sure it's a region where Bedrock is available (e.g., us-east-1, us-west-2).
+            """)
+        elif "AccessDenied" in str(e):
+            st.error("""
+            ⚠️ AWS Access Denied.
+            Please check your AWS credentials in Streamlit secrets and ensure they have access to Bedrock.
+            """)
+        else:
+            st.error(f"Failed to initialize AWS services: {str(e)}")
+        st.stop()
+    
     # Sidebar
     st.sidebar.title("Options")
     use_test_data = st.sidebar.checkbox("Use Test Data", value=True)
@@ -324,7 +345,7 @@ def main():
                 try:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                    analysis = loop.run_until_complete(run_analysis(incident))
+                    analysis = loop.run_until_complete(analyze_incident(incident, st.session_state.bedrock_service))
                     loop.close()
                     
                     if analysis:
