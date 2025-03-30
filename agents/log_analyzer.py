@@ -4,6 +4,9 @@ from services.bedrock_service import BedrockService
 import re
 from collections import Counter
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class LogAnalyzer:
     def __init__(self, bedrock_service: BedrockService):
@@ -95,11 +98,16 @@ class LogAnalyzer:
         for log in logs:
             timestamp_match = timestamp_pattern.search(log)
             if timestamp_match:
-                timestamp = timestamp_match.group(0)
-                events.append({
-                    "timestamp": timestamp,
-                    "content": log
-                })
+                timestamp_str = timestamp_match.group(0)
+                try:
+                    timestamp = datetime.fromisoformat(timestamp_str)
+                    events.append({
+                        "timestamp": timestamp,
+                        "content": log
+                    })
+                except ValueError as e:
+                    logger.warning(f"Failed to parse timestamp {timestamp_str}: {e}")
+                    continue
         
         # Sort events by timestamp
         events.sort(key=lambda x: x["timestamp"])
@@ -116,8 +124,8 @@ class LogAnalyzer:
                             "event1": events[i]["content"],
                             "event2": events[j]["content"],
                             "time_diff": time_diff,
-                            "timestamp1": events[i]["timestamp"],
-                            "timestamp2": events[j]["timestamp"]
+                            "timestamp1": events[i]["timestamp"].isoformat(),
+                            "timestamp2": events[j]["timestamp"].isoformat()
                         })
         
         return correlations
