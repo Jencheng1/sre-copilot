@@ -17,12 +17,11 @@ from main import analyze_incident
 load_dotenv()
 
 # Verify AWS configuration
-if not all(['AWS_ACCESS_KEY_ID' in st.secrets,
-           'AWS_SECRET_ACCESS_KEY' in st.secrets,
-           'AWS_REGION' in st.secrets]):
-    st.error("AWS credentials not found. Please configure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION in your Streamlit secrets.")
-    st.markdown("""
-    To configure secrets in Streamlit Cloud:
+if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
+    st.error("""
+    ⚠️ AWS credentials not found in Streamlit secrets.
+    
+    Please configure the following in your Streamlit Cloud settings:
     1. Go to your app dashboard on share.streamlit.io
     2. Click on ⚙️ Settings
     3. Go to Secrets section
@@ -30,7 +29,7 @@ if not all(['AWS_ACCESS_KEY_ID' in st.secrets,
     ```toml
     AWS_ACCESS_KEY_ID = "your_access_key"
     AWS_SECRET_ACCESS_KEY = "your_secret_key"
-    AWS_REGION = "us-east-1"
+    AWS_REGION = "us-east-1"  # or your preferred region
     ```
     """)
     st.stop()
@@ -45,7 +44,18 @@ async def run_analysis(incident: Incident):
     try:
         return await analyze_incident(incident)
     except Exception as e:
-        st.error(f"Analysis failed: {str(e)}")
+        if "NoRegionError" in str(e):
+            st.error("""
+            ⚠️ AWS Region not properly configured.
+            Please check your AWS_REGION in Streamlit secrets.
+            """)
+        elif "AccessDenied" in str(e):
+            st.error("""
+            ⚠️ AWS Access Denied.
+            Please check your AWS credentials in Streamlit secrets.
+            """)
+        else:
+            st.error(f"Analysis failed: {str(e)}")
         return None
 
 # Set page config

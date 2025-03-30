@@ -5,6 +5,9 @@ import streamlit as st
 
 class BedrockService:
     def __init__(self):
+        if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
+            raise Exception("AWS credentials not found in Streamlit secrets. Please configure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION.")
+            
         self.bedrock = boto3.client(
             service_name='bedrock-runtime',
             region_name=st.secrets['AWS_REGION'],
