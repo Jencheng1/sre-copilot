@@ -8,7 +8,16 @@ from utils.test_data import generate_test_incident, generate_test_snapshot
 from utils.diagrams import get_system_architecture_diagram, get_agent_interaction_diagram, get_data_flow_diagram
 from models.incident import Incident, IncidentAnalysis
 import asyncio
+import httpx
 from main import analyze_incident
+
+# Create a new event loop for async operations
+async def run_analysis(incident: Incident):
+    try:
+        return await analyze_incident(incident)
+    except Exception as e:
+        st.error(f"Analysis failed: {str(e)}")
+        return None
 
 # Set page config
 st.set_page_config(
@@ -198,43 +207,32 @@ def main():
     
     if use_test_data:
         incident = generate_test_incident()
-        analysis = generate_test_snapshot()  # This already returns an IncidentAnalysis object
-    else:
-        # File uploader for custom incident data
-        uploaded_file = st.sidebar.file_uploader("Upload Incident Data", type=["json"])
-        if uploaded_file:
-            incident_data = json.load(uploaded_file)
-            incident = Incident(**incident_data)
-            
-            # Analyze incident
-            if st.sidebar.button("Analyze Incident"):
-                analysis = asyncio.run(analyze_incident(incident))
-            else:
-                analysis = None
-    
-    # Main content
-    if incident:
-        # Incident Details
-        st.header("📋 Incident Details")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Incident ID", incident.incident_id)
-        with col2:
-            st.metric("Severity", incident.severity)
-        with col3:
-            st.metric("Duration", 
-                     f"{(incident.end_time - incident.start_time).total_seconds() / 3600:.1f} hours")
         
-        st.markdown("### Description")
-        st.markdown(incident.description)
+        # Display incident details
+        st.header("📋 Incident Details")
+        st.json(incident.dict())
         
         # Display metrics and logs
         display_metrics(incident)
         display_logs(incident)
         
+        # Analyze incident
+        if st.sidebar.button("Analyze Incident"):
+            with st.spinner("Analyzing incident..."):
+                try:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    analysis = loop.run_until_complete(run_analysis(incident))
+                    loop.close()
+                except Exception as e:
+                    st.error(f"Failed to analyze incident: {str(e)}")
+                    return
+        
         # Display analysis if available
         if analysis:
             display_analysis(analysis)
+    else:
+        st.info("Please upload incident data or enable test data")
 
 if __name__ == "__main__":
     main() 
