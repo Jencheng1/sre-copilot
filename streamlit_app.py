@@ -277,6 +277,24 @@ def display_analysis(analysis: IncidentAnalysis):
 def main():
     st.title("🔍 SRE Copilot - Incident RCA")
     
+    # Verify AWS configuration first
+    if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
+        st.error("""
+        ⚠️ AWS credentials not found in Streamlit secrets.
+        
+        Please configure the following in your Streamlit Cloud settings:
+        1. Go to your app dashboard on share.streamlit.io
+        2. Click on ⚙️ Settings
+        3. Go to Secrets section
+        4. Add your secrets in TOML format:
+        ```toml
+        AWS_ACCESS_KEY_ID = "your_access_key"
+        AWS_SECRET_ACCESS_KEY = "your_secret_key"
+        AWS_REGION = "us-east-1"  # or your preferred region
+        ```
+        """)
+        st.stop()
+    
     # Sidebar
     st.sidebar.title("Options")
     use_test_data = st.sidebar.checkbox("Use Test Data", value=True)
@@ -308,13 +326,23 @@ def main():
                     asyncio.set_event_loop(loop)
                     analysis = loop.run_until_complete(run_analysis(incident))
                     loop.close()
+                    
+                    if analysis:
+                        display_analysis(analysis)
                 except Exception as e:
-                    st.error(f"Failed to analyze incident: {str(e)}")
-                    return
-        
-        # Display analysis if available
-        if analysis:
-            display_analysis(analysis)
+                    if "NoRegionError" in str(e):
+                        st.error("""
+                        ⚠️ AWS Region not properly configured.
+                        Please check your AWS_REGION in Streamlit secrets.
+                        Make sure it's a region where Bedrock is available (e.g., us-east-1, us-west-2).
+                        """)
+                    elif "AccessDenied" in str(e):
+                        st.error("""
+                        ⚠️ AWS Access Denied.
+                        Please check your AWS credentials in Streamlit secrets and ensure they have access to Bedrock.
+                        """)
+                    else:
+                        st.error(f"Analysis failed: {str(e)}")
     else:
         st.info("Please upload incident data or enable test data")
 

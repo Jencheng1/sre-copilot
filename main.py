@@ -21,12 +21,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize services
-bedrock_service = BedrockService()
-incident_analyzer = IncidentAnalyzer(bedrock_service)
-metric_analyzer = MetricAnalyzer(bedrock_service)
-log_analyzer = LogAnalyzer(bedrock_service)
-
 @app.post("/analyze/incident", response_model=IncidentAnalysis)
 async def analyze_incident(incident: Incident):
     """
@@ -35,6 +29,12 @@ async def analyze_incident(incident: Incident):
     try:
         # Validate incident data
         validate_incident_data(incident)
+        
+        # Initialize services
+        bedrock_service = BedrockService()
+        incident_analyzer = IncidentAnalyzer(bedrock_service)
+        metric_analyzer = MetricAnalyzer(bedrock_service)
+        log_analyzer = LogAnalyzer(bedrock_service)
         
         # Run parallel analysis using different agents
         incident_analysis = await incident_analyzer.analyze(incident)
@@ -61,6 +61,8 @@ async def analyze_metrics(metrics: List[dict]):
     Analyze metrics data specifically
     """
     try:
+        bedrock_service = BedrockService()
+        metric_analyzer = MetricAnalyzer(bedrock_service)
         analysis = await metric_analyzer.analyze(metrics)
         return analysis
     except Exception as e:
@@ -72,6 +74,8 @@ async def analyze_logs(logs: List[str]):
     Analyze log data specifically
     """
     try:
+        bedrock_service = BedrockService()
+        log_analyzer = LogAnalyzer(bedrock_service)
         analysis = await log_analyzer.analyze(logs)
         return analysis
     except Exception as e:
@@ -83,7 +87,7 @@ async def analyze_image(image: UploadFile = File(...)):
     Analyze incident-related images (e.g., dashboards, error screenshots)
     """
     try:
-        # Process image and analyze using Bedrock
+        bedrock_service = BedrockService()
         analysis = await bedrock_service.analyze_image(image)
         return analysis
     except Exception as e:
