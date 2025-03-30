@@ -21,6 +21,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize services lazily
+_bedrock_service = None
+_incident_analyzer = None
+_metric_analyzer = None
+_log_analyzer = None
+
+def get_services():
+    global _bedrock_service, _incident_analyzer, _metric_analyzer, _log_analyzer
+    if _bedrock_service is None:
+        _bedrock_service = BedrockService()
+        _incident_analyzer = IncidentAnalyzer(_bedrock_service)
+        _metric_analyzer = MetricAnalyzer(_bedrock_service)
+        _log_analyzer = LogAnalyzer(_bedrock_service)
+    return _bedrock_service, _incident_analyzer, _metric_analyzer, _log_analyzer
+
 async def analyze_incident(incident: Incident, bedrock_service: BedrockService = None):
     """
     Analyze an incident using multiple agents for comprehensive RCA

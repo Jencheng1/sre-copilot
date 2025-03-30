@@ -5,7 +5,7 @@ import streamlit as st
 
 class BedrockService:
     def __init__(self):
-        # Verify AWS credentials in Streamlit secrets
+        # Verify AWS credentials in Streamlit secrets and initialize Bedrock client
         if not all(key in st.secrets for key in ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_REGION']):
             raise Exception("AWS credentials not found in Streamlit secrets. Please configure AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_REGION.")
             
