@@ -76,6 +76,29 @@ async def run_analysis(incident: Incident):
             """)
         return None
 
+def run_analysis_sync(incident: Incident):
+    """
+    Synchronous wrapper for running the async analysis
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        analysis = loop.run_until_complete(run_analysis(incident))
+        loop.close()
+        return analysis
+    except Exception as e:
+        st.error(f"""
+        ❌ Analysis failed
+        
+        Error details: {str(e)}
+        
+        Please check:
+        1. Your AWS credentials are correct
+        2. You're using a region where Bedrock is available
+        3. Your AWS credentials have access to Bedrock
+        """)
+        return None
+
 # Set page config
 st.set_page_config(
     page_title="SRE Copilot - Incident RCA",
@@ -354,39 +377,10 @@ def main():
         # Analyze incident
         if st.sidebar.button("Analyze Incident"):
             with st.spinner("Analyzing incident..."):
-                try:
-                    analysis = await run_analysis(incident)
-                    
-                    if analysis:
-                        display_analysis(analysis)
-                except Exception as e:
-                    error_msg = str(e)
-                    if "NoRegionError" in error_msg:
-                        st.error(f"""
-                        ⚠️ AWS Region not properly configured.
-                        Please check your AWS_REGION in Streamlit secrets.
-                        Make sure it's a region where Bedrock is available (e.g., us-east-1, us-west-2).
-                        
-                        Error details: {error_msg}
-                        """)
-                    elif "AccessDenied" in error_msg:
-                        st.error(f"""
-                        ⚠️ AWS Access Denied.
-                        Please check your AWS credentials in Streamlit secrets and ensure they have access to Bedrock.
-                        
-                        Error details: {error_msg}
-                        """)
-                    else:
-                        st.error(f"""
-                        ❌ Analysis failed
-                        
-                        Error details: {error_msg}
-                        
-                        Please check:
-                        1. Your AWS credentials are correct
-                        2. You're using a region where Bedrock is available
-                        3. Your AWS credentials have access to Bedrock
-                        """)
+                analysis = run_analysis_sync(incident)
+                if analysis:
+                    st.success("Analysis completed!")
+                    display_analysis(analysis)
     else:
         st.info("Please upload incident data or enable test data")
 
