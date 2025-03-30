@@ -29,11 +29,35 @@ class IncidentAnalyzer:
             
             {text}
             
-            Provide analysis in the following format:
-            1. Root cause analysis with confidence level and evidence
-            2. Impact analysis with confidence level and evidence
-            3. Key findings and patterns
-            4. Recommendations for prevention and mitigation
+            Please provide your analysis in exactly the following format:
+
+            1. Root Cause Analysis:
+            [Main root cause finding]
+            Confidence: [Percentage between 0-100]%
+            Evidence:
+            - [Evidence point 1]
+            - [Evidence point 2]
+            - [Additional evidence points...]
+
+            2. Impact Analysis:
+            [Main impact finding]
+            Confidence: [Percentage between 0-100]%
+            Evidence:
+            - [Evidence point 1]
+            - [Evidence point 2]
+            - [Additional evidence points...]
+
+            3. Key Findings:
+            - [Finding 1]
+            - [Finding 2]
+            - [Additional findings...]
+
+            4. Recommendations:
+            - [Recommendation 1]
+            - [Recommendation 2]
+            - [Additional recommendations...]
+
+            Please ensure each section follows this exact format with confidence levels as percentages and evidence as bullet points.
             """
         )
         
@@ -50,8 +74,9 @@ class IncidentAnalyzer:
             evidence=analysis_result.get("impact_evidence", [])
         )
         
-        # Generate recommendations
-        recommendations = await self.bedrock_service.generate_recommendations(analysis_result)
+        # Extract key findings and recommendations directly from the analysis result
+        key_findings = analysis_result.get("key_findings", [])
+        recommendations = analysis_result.get("recommendations", [])
         
         return IncidentAnalysis(
             incident_id=incident.incident_id,
