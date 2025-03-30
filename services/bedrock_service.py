@@ -39,11 +39,14 @@ class BedrockService:
         
     async def analyze_text(self, text: str, prompt_template: str) -> Dict[str, Any]:
         """
-        Analyze text using AWS Bedrock
+        Analyze text using Bedrock's Claude model
         """
         try:
+            # Format the prompt with the text parameter
+            formatted_prompt = prompt_template.format(text=text)
+            
             body = json.dumps({
-                "prompt": prompt_template.format(text),
+                "prompt": formatted_prompt,
                 "max_tokens_to_sample": 1000,
                 "temperature": 0.7,
                 "top_p": 0.95,
@@ -56,7 +59,77 @@ class BedrockService:
             )
             
             response_body = json.loads(response.get('body').read())
-            return response_body
+            
+            # Extract the completion from Claude's response
+            completion = response_body.get('completion', '')
+            
+            # Parse the completion into structured data
+            try:
+                # Split the completion into sections
+                sections = completion.split('\n\n')
+                
+                # Initialize the result dictionary
+                result = {
+                    "root_cause": "",
+                    "root_cause_confidence": 0.0,
+                    "root_cause_evidence": [],
+                    "impact_analysis": "",
+                    "impact_confidence": 0.0,
+                    "impact_evidence": [],
+                    "key_findings": [],
+                    "recommendations": []
+                }
+                
+                # Parse each section
+                current_section = None
+                for section in sections:
+                    if "Root cause analysis" in section:
+                        current_section = "root_cause"
+                        # Extract confidence and evidence
+                        lines = section.split('\n')
+                        result["root_cause"] = lines[0].replace("Root cause analysis:", "").strip()
+                        for line in lines[1:]:
+                            if "confidence" in line.lower():
+                                try:
+                                    result["root_cause_confidence"] = float(line.split(":")[1].strip().rstrip("%")) / 100
+                                except:
+                                    pass
+                            elif line.strip().startswith("-"):
+                                result["root_cause_evidence"].append(line.strip("- "))
+                    
+                    elif "Impact analysis" in section:
+                        current_section = "impact"
+                        lines = section.split('\n')
+                        result["impact_analysis"] = lines[0].replace("Impact analysis:", "").strip()
+                        for line in lines[1:]:
+                            if "confidence" in line.lower():
+                                try:
+                                    result["impact_confidence"] = float(line.split(":")[1].strip().rstrip("%")) / 100
+                                except:
+                                    pass
+                            elif line.strip().startswith("-"):
+                                result["impact_evidence"].append(line.strip("- "))
+                    
+                    elif "Key findings" in section:
+                        current_section = "findings"
+                        lines = section.split('\n')
+                        for line in lines[1:]:
+                            if line.strip().startswith("-"):
+                                result["key_findings"].append(line.strip("- "))
+                    
+                    elif "Recommendations" in section:
+                        current_section = "recommendations"
+                        lines = section.split('\n')
+                        for line in lines[1:]:
+                            if line.strip().startswith("-") or line.strip()[0].isdigit():
+                                result["recommendations"].append(line.strip("- ").strip("1234567890. "))
+                
+                return result
+            except Exception as e:
+                logger.error(f"Error parsing Claude's response: {str(e)}")
+                # Return the raw completion if parsing fails
+                return {"completion": completion}
+            
         except Exception as e:
             logger.error(f"Error analyzing text with Bedrock: {str(e)}")
             raise Exception(f"Error analyzing text with Bedrock: {str(e)}")
