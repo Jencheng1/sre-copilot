@@ -1,14 +1,15 @@
 from typing import List, Dict, Any
-from models.incident import LogAnalysis, AnalysisInsight
+from models.incident import LogAnalysis, AnalysisInsight, Log
 from services.bedrock_service import BedrockService
 import re
 from collections import Counter
+from datetime import datetime
 
 class LogAnalyzer:
     def __init__(self, bedrock_service: BedrockService):
         self.bedrock_service = bedrock_service
     
-    async def analyze(self, logs: List[str]) -> LogAnalysis:
+    async def analyze(self, logs: List[Log]) -> LogAnalysis:
         """
         Analyze log data using pattern matching and AWS Bedrock
         """
@@ -19,9 +20,15 @@ class LogAnalyzer:
                 correlation_events=[]
             )
         
+        # Convert logs to strings for pattern analysis
+        log_strings = [
+            f"{log.timestamp.isoformat()} [{log.level}] {log.source}: {log.message}"
+            for log in logs
+        ]
+        
         # Perform pattern analysis
-        error_patterns = self._analyze_error_patterns(logs)
-        correlation_events = self._analyze_correlations(logs)
+        error_patterns = self._analyze_error_patterns(log_strings)
+        correlation_events = self._analyze_correlations(log_strings)
         
         # Get insights from Bedrock
         bedrock_analysis = await self.bedrock_service.analyze_logs(logs)

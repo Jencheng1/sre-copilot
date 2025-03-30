@@ -171,7 +171,7 @@ class BedrockService:
         Analyze log data using AWS Bedrock
         """
         prompt = """
-        Analyze the following log data and identify patterns, errors, and potential issues:
+        Analyze the following log entries and identify patterns, errors, and potential issues:
         
         {text}
         
@@ -179,21 +179,37 @@ class BedrockService:
         1. Error patterns and frequencies
         2. Correlated events
         3. Potential root causes
-        4. Recommendations
+        4. Recommendations for addressing the identified issues
         """
         
         # Convert logs to serializable format
         logs_data = []
         for log in logs:
-            logs_data.append({
+            log_entry = {
                 "timestamp": log.timestamp.isoformat(),
                 "level": log.level,
                 "message": log.message,
-                "source": log.source,
-                "metadata": log.metadata or {}
-            })
+                "source": log.source
+            }
+            if log.metadata:
+                log_entry["metadata"] = log.metadata
+            logs_data.append(log_entry)
         
-        logs_text = json.dumps(logs_data, indent=2)
+        # Format logs for analysis
+        formatted_logs = []
+        for log_data in logs_data:
+            metadata_str = ""
+            if "metadata" in log_data:
+                metadata_str = f" {json.dumps(log_data['metadata'])}"
+            formatted_logs.append(
+                f"{log_data['timestamp']} [{log_data['level']}] {log_data['source']}: {log_data['message']}{metadata_str}"
+            )
+        
+        logs_text = json.dumps({
+            "log_entries": logs_data,
+            "formatted_logs": formatted_logs
+        }, indent=2)
+        
         return await self.analyze_text(logs_text, prompt)
     
     async def analyze_image(self, image_data: bytes) -> Dict[str, Any]:
